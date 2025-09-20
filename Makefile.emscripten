@@ -1,0 +1,39 @@
+# Emscripten Makefile
+CXX = em++
+CXXFLAGS = -Wall -std=c++11 -Iinclude
+LDFLAGS = --bind -s WASM=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s ENVIRONMENT=web -s USE_PTHREADS=0
+
+# Directories
+SRCDIR = src
+INCDIR = include
+OBJDIR = obj
+BINDIR = bin
+
+# Files
+SOURCES = $(SRCDIR)/Account.cpp $(SRCDIR)/Bank.cpp $(SRCDIR)/ATM.cpp $(SRCDIR)/Transaction.cpp $(SRCDIR)/web_main.cpp
+OBJECTS = $(SOURCES:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o)
+TARGET = $(BINDIR)/atm.js
+
+# Default target
+all: $(TARGET)
+
+# Create target executable
+$(TARGET): $(OBJECTS) | $(BINDIR)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJECTS)
+
+# Compile source files to object files
+$(OBJDIR)/%.o: $(SRCDIR)/%.cpp | $(OBJDIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Create directories if they don't exist
+$(BINDIR):
+	mkdir -p $(BINDIR)
+
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
+
+# Clean build files
+clean:
+	rm -rf $(OBJDIR) $(BINDIR)
+
+.PHONY: all clean

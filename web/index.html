@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web ATM Application</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .atm-container {
+            background-color: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .display {
+            background-color: #e0e0e0;
+            padding: 15px;
+            border-radius: 5px;
+            min-height: 100px;
+            margin-bottom: 15px;
+            font-family: monospace;
+        }
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .keypad button {
+            padding: 15px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+        .keypad button:hover {
+            background-color: #45a049;
+        }
+        .keypad button.function {
+            background-color: #2196F3;
+        }
+        .keypad button.function:hover {
+            background-color: #0b7dda;
+        }
+        .input-area {
+            margin-top: 15px;
+        }
+        .input-area input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .input-area button {
+            margin-top: 10px;
+            padding: 10px 15px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="atm-container">
+        <h1>Web ATM Machine</h1>
+        <div class="display" id="display">
+            Initializing ATM...
+        </div>
+        
+        <div class="input-area">
+            <input type="text" id="inputField" placeholder="Enter input here">
+            <button onclick="submitInput()">Submit</button>
+        </div>
+        
+        <div class="keypad">
+            <button onclick="pressKey('1')">1</button>
+            <button onclick="pressKey('2')">2</button>
+            <button onclick="pressKey('3')">3</button>
+            <button onclick="pressKey('4')">4</button>
+            <button onclick="pressKey('5')">5</button>
+            <button onclick="pressKey('6')">6</button>
+            <button onclick="pressKey('7')">7</button>
+            <button onclick="pressKey('8')">8</button>
+            <button onclick="pressKey('9')">9</button>
+            <button onclick="pressKey('0')">0</button>
+            <button onclick="clearInput()" class="function">Clear</button>
+            <button onclick="submitInput()" class="function">Enter</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the Emscripten module
+        import Module from './bin/atm.js';
+        
+        let atmModule;
+        let currentState = 'init';
+        
+        // Initialize the module
+        Module().then(module => {
+            atmModule = module;
+            atmModule._initATM();
+            updateDisplay("Welcome to Web ATM! Please enter your account number:");
+            currentState = 'awaiting_account';
+        });
+        
+        // Function to call the C++ code
+        function runATMCommand(input) {
+            const inputPtr = atmModule.allocateUTF8(input);
+            const resultPtr = atmModule._runATM(inputPtr);
+            const result = atmModule.UTF8ToString(resultPtr);
+            atmModule._free(inputPtr);
+            atmModule._free(resultPtr);
+            return result;
+        }
+        
+        // Update the display
+        function updateDisplay(text) {
+            document.getElementById('display').textContent = text;
+        }
+        
+        // Press a key on the keypad
+        window.pressKey = function(key) {
+            const inputField = document.getElementById('inputField');
+            inputField.value += key;
+        }
+        
+        // Clear the input field
+        window.clearInput = function() {
+            document.getElementById('inputField').value = '';
+        }
+        
+        // Submit the input
+        window.submitInput = function() {
+            const input = document.getElementById('inputField').value;
+            if (!input) return;
+            
+            let command;
+            
+            if (currentState === 'awaiting_account') {
+                command = `auth:${input}:`;
+                currentState = 'awaiting_pin';
+                updateDisplay("Please enter your PIN:");
+            } else if (currentState === 'awaiting_pin') {
+                const account = document.getElementById('inputField').value;
+                // This would need to be handled more securely in a real application
+                command = `auth:${account}:${input}`;
+                currentState = 'authenticated';
+            } else {
+                command = input;
+            }
+            
+            const result = runATMCommand(command);
+            updateDisplay(result);
+            document.getElementById('inputField').value = '';
+        }
+    </script>
+</body>
+</html>

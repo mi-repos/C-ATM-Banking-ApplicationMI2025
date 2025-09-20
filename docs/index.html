@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web ATM Application</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏦</text></svg>">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .atm-container {
+            background-color: #0047AB;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            color: white;
+            border: 2px solid #003380;
+        }
+        .display {
+            background-color: #cce5ff;
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 120px;
+            margin-bottom: 20px;
+            font-family: 'Courier New', monospace;
+            color: #003366;
+            border: 2px solid #003380;
+            font-size: 18px;
+            line-height: 1.5;
+        }
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .keypad button {
+            padding: 18px;
+            font-size: 22px;
+            border: none;
+            border-radius: 8px;
+            background-color: #003366;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .keypad button:hover {
+            background-color: #002244;
+        }
+        .keypad button.function {
+            background-color: #FF9900;
+        }
+        .keypad button.function:hover {
+            background-color: #e68a00;
+        }
+        .input-area {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .input-area input {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: 2px solid #003380;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            background-color: #e6f2ff;
+        }
+        .input-area button {
+            padding: 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .input-area button:hover {
+            background-color: #218838;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 25px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .transaction-history {
+            margin-top: 25px;
+            background-color: #e6f2ff;
+            padding: 15px;
+            border-radius: 8px;
+            color: #003366;
+            border: 2px solid #003380;
+        }
+        .transaction-history h3 {
+            margin-top: 0;
+            color: #003366;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="atm-container">
+        <h1>🏦 Web ATM Machine</h1>
+        <div class="display" id="display">
+            <div class="loader"></div>
+            <p>Loading ATM system...</p>
+        </div>
+        
+        <div class="input-area hidden" id="inputArea">
+            <input type="text" id="inputField" placeholder="Enter input here">
+            <button onclick="submitInput()">Submit</button>
+        </div>
+        
+        <div class="keypad hidden" id="keypad">
+            <button onclick="pressKey('1')">1</button>
+            <button onclick="pressKey('2')">2</button>
+            <button onclick="pressKey('3')">3</button>
+            <button onclick="pressKey('4')">4</button>
+            <button onclick="pressKey('5')">5</button>
+            <button onclick="pressKey('6')">6</button>
+            <button onclick="pressKey('7')">7</button>
+            <button onclick="pressKey('8')">8</button>
+            <button onclick="pressKey('9')">9</button>
+            <button onclick="pressKey('0')">0</button>
+            <button onclick="clearInput()" class="function">Clear</button>
+            <button onclick="submitInput()" class="function">Enter</button>
+        </div>
+        
+        <div class="transaction-history">
+            <h3>Sample Accounts (for testing):</h3>
+            <p>Account: 123456, PIN: 1234, Name: John Doe</p>
+            <p>Account: 654321, PIN: 4321, Name: Jane Smith</p>
+            <p>Account: 111222, PIN: 1111, Name: Robert Johnson</p>
+        </div>
+    </div>
+
+    <script>
+        let atmModule;
+        let currentState = 'init';
+        let currentAccount = '';
+        
+        // Function to show an element
+        function showElement(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+        
+        // Function to hide an element
+        function hideElement(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+        
+        // Initialize the module
+        async function initATM() {
+            try {
+                // Show loading state
+                updateDisplay("Loading ATM system...");
+                
+                // Load the Emscripten module
+                atmModule = await Module();
+                atmModule._initATM();
+                
+                // Show UI elements
+                showElement('inputArea');
+                showElement('keypad');
+                
+                // Update display
+                updateDisplay("Welcome to Web ATM! Please enter your account number:");
+                currentState = 'awaiting_account';
+            } catch (error) {
+                console.error("Error loading ATM:", error);
+                updateDisplay("Error loading ATM system. Please check the console for details.");
+            }
+        }
+        
+        // Function to call the C++ code
+        function runATMCommand(input) {
+            try {
+                const inputPtr = atmModule.allocateUTF8(input);
+                const resultPtr = atmModule._runATM(inputPtr);
+                const result = atmModule.UTF8ToString(resultPtr);
+                atmModule._free(inputPtr);
+                return result;
+            } catch (error) {
+                console.error("Error running ATM command:", error);
+                return "Error processing command. Please try again.";
+            }
+        }
+        
+        // Update the display
+        function updateDisplay(text) {
+            document.getElementById('display').innerHTML = text;
+        }
+        
+        // Press a key on the keypad
+        function pressKey(key) {
+            const inputField = document.getElementById('inputField');
+            inputField.value += key;
+        }
+        
+        // Clear the input field
+        function clearInput() {
+            document.getElementById('inputField').value = '';
+        }
+        
+        // Submit the input
+        function submitInput() {
+            const input = document.getElementById('inputField').value;
+            if (!input) return;
+            
+            let command;
+            let result;
+            
+            if (currentState === 'awaiting_account') {
+                currentAccount = input;
+                command = `auth:${input}:`;
+                currentState = 'awaiting_pin';
+                updateDisplay("Please enter your PIN:");
+                document.getElementById('inputField').type = 'password';
+            } else if (currentState === 'awaiting_pin') {
+                command = `auth:${currentAccount}:${input}`;
+                result = runATMCommand(command);
+                updateDisplay(result);
+                
+                if (result.includes("Welcome")) {
+                    currentState = 'authenticated';
+                } else {
+                    currentState = 'awaiting_account';
+                    document.getElementById('inputField').type = 'text';
+                    updateDisplay("Authentication failed. Please enter your account number:");
+                }
+            } else if (currentState === 'authenticated') {
+                if (input === '1') {
+                    command = `balance:${currentAccount}`;
+                    result = runATMCommand(command);
+                    updateDisplay(result);
+                } else if (input === '2') {
+                    currentState = 'withdraw';
+                    updateDisplay("Enter amount to withdraw:");
+                    document.getElementById('inputField').type = 'text';
+                } else if (input === '3') {
+                    currentState = 'deposit';
+                    updateDisplay("Enter amount to deposit:");
+                    document.getElementById('inputField').type = 'text';
+                } else if (input === '4') {
+                    currentState = 'change_pin';
+                    updateDisplay("Enter new PIN:");
+                    document.getElementById('inputField').type = 'password';
+                } else if (input === '5') {
+                    updateDisplay("Thank you for using our ATM. Have a nice day!");
+                    currentState = 'awaiting_account';
+                    document.getElementById('inputField').type = 'text';
+                    currentAccount = '';
+                } else {
+                    updateDisplay("Invalid option. Please choose 1-5.");
+                }
+            } else if (currentState === 'withdraw') {
+                command = `withdraw:${currentAccount}:${input}`;
+                result = runATMCommand(command);
+                updateDisplay(result);
+                currentState = 'authenticated';
+            } else if (currentState === 'deposit') {
+                command = `deposit:${currentAccount}:${input}`;
+                result = runATMCommand(command);
+                updateDisplay(result);
+                currentState = 'authenticated';
+            } else if (currentState === 'change_pin') {
+                command = `changepin:${currentAccount}:${input}`;
+                result = runATMCommand(command);
+                updateDisplay(result);
+                currentState = 'authenticated';
+            }
+            
+            document.getElementById('inputField').value = '';
+        }
+        
+        // Initialize the ATM when the page loads
+        window.onload = function() {
+            // Check if WebAssembly is supported
+            if (typeof WebAssembly === 'object') {
+                initATM();
+            } else {
+                updateDisplay("WebAssembly is not supported in your browser. Please use a modern browser like Chrome, Firefox, or Edge.");
+            }
+        };
+    </script>
+    
+    <!-- Load the Emscripten generated JS -->
+    <script src="atm.js"></script>
+</body>
+</html>
